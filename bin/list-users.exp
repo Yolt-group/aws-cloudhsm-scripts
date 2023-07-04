@@ -1,0 +1,16 @@
+#!/usr/bin/expect -f
+
+log_user 0
+set timeout 300
+
+spawn /opt/cloudhsm/bin/cloudhsm_mgmt_util /opt/cloudhsm/etc/cloudhsm_mgmt_util.cfg
+
+expect "aws-cloudhsm>"
+send -- "enable_e2e\r"
+
+expect "aws-cloudhsm>"
+send -- "listUsers\r"
+log_user 1
+
+send -- "quit\r"
+expect eof

@@ -1,0 +1,37 @@
+#!/usr/bin/expect -f
+set loginUser [lindex $argv 0]
+set loginPass [lindex $argv 1]
+set keyID [lindex $argv 2]
+
+log_user 0
+set timeout 300
+
+spawn /opt/cloudhsm/bin/key_mgmt_util
+
+send_user "loginHSM -u CU -s $loginUser -p HIDDEN\r"
+send -- "loginHSM -u CU -s $loginUser -p $loginPass\r"
+
+expect {
+  "Cfm3LoginHSM returned: 0x40000049" {
+   send_user "Wrong password"
+   exit 1
+  }
+  "Command:  " {
+    log_user 1
+    send_user "deleteKey -k $keyID\n"
+    send -- "deleteKey -k $keyID\r"
+    expect {   
+      "Cfm3DeleteKey returned: 0x00 : HSM Return: SUCCESS" {
+        send -- "exit\r"
+      }
+      "Cfm3DeleteKey returned: 0x30000080" {
+        exit 1
+      }
+      "Error: Key handle (-k) is missing."{
+        exit 1
+      }
+    }
+  }
+}
+
+expect eof

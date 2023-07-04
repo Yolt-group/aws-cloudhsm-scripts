@@ -1,0 +1,33 @@
+#!/usr/bin/expect -f
+set loginuser [lindex $argv 0]
+set loginpass [lindex $argv 1]
+set userID [lindex $argv 2]
+
+log_user 0
+set timeout 300
+
+spawn /opt/cloudhsm/bin/cloudhsm_mgmt_util /opt/cloudhsm/etc/cloudhsm_mgmt_util.cfg
+
+expect "aws-cloudhsm>"
+
+send -- "enable_e2e\r"
+
+expect "aws-cloudhsm>"
+
+send_user "loginHSM CO $loginuser HIDDEN\n"
+send -- "loginHSM CO $loginuser $loginpass\r"
+
+expect {
+  "loginHSM failed: HSM Error: RET_USER_LOGIN_FAILURE" {
+   send_user "Wrong password\n"
+   exit 1
+  }
+  "aws-cloudhsm>" {
+    send_user "findAllKeys $userID 0 /tmp/$userID.out\n"
+    send -- "findAllKeys $userID 0 /tmp/$userID.out\r"
+  }
+}
+
+expect "aws-cloudhsm>"
+send -- "quit\r"
+expect eof

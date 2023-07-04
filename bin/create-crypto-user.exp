@@ -1,0 +1,59 @@
+#!/usr/bin/expect -f
+set loginuser [lindex $argv 0]
+set loginpass [lindex $argv 1]
+set username [lindex $argv 2];
+set password [lindex $argv 3];
+
+log_user 0
+set timeout 300
+
+spawn /opt/cloudhsm/bin/cloudhsm_mgmt_util /opt/cloudhsm/etc/cloudhsm_mgmt_util.cfg
+
+send -- "enable_e2e\r"
+expect "aws-cloudhsm>"
+
+send_user "loginHSM CO $loginuser HIDDEN\r"
+send -- "loginHSM CO $loginuser $loginpass\r"
+
+expect {
+  "loginHSM failed: HSM Error: RET_USER_LOGIN_FAILURE" {
+   send_user "Wrong password"
+   exit 1
+  }
+  "aws-cloudhsm>" {
+    send_user "createUser CU $username HIDDEN\n"
+    send -- "createUser CU $username $password\r"
+  }
+}
+
+expect "Do you want to continue(y/n)?"
+send -- "y\r"
+
+expect {
+  "aws-cloudhsm>" {
+    send -- "quit\r"
+  }
+
+  "createUser failed: HSM Error: This user is already created" {
+    send_user "Error: User $username already exists\n"
+    expect "(R/I/A):"
+    send -- "A\r"
+    expect "aws-cloudhsm>"
+
+    ##### Change password when user already exists.
+    # send_user "changePswd $usertype $username HIDDEN\n"
+    # log_user 0
+    # send -- "changePswd $usertype $username $password\r"
+    # log_user 1
+    # expect "Do you want to continue(y/n)?"
+    # send -- "y\r"
+    # expect "aws-cloudhsm>"
+    #####
+
+    send -- "quit\r"
+    expect eof
+    exit 2
+  }
+}
+
+expect eof

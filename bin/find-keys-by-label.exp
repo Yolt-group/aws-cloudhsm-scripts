@@ -1,0 +1,41 @@
+#!/usr/bin/expect -f
+set loginUser [lindex $argv 0]
+set loginPass [lindex $argv 1]
+set keyLabel [lindex $argv 2]
+
+log_user 0
+set timeout 300
+
+spawn /opt/cloudhsm/bin/key_mgmt_util
+
+expect "Command:  "
+
+send_user "loginHSM -u CU -s $loginUser -p HIDDEN\r"
+send -- "loginHSM -u CU -s $loginUser -p $loginPass\r"
+
+expect {
+  "Cfm3LoginHSM returned: 0x40000049" {
+   send_user "Wrong password"
+   exit 1
+  }
+  "Command:  " {
+    log_user 1
+    send_user "findKey -l $keyLabel\n"
+    send -- "findKey -l $keyLabel\r"
+    
+    expect {   
+      "Cfm3FindKey returned: 0x00 : HSM Return: SUCCESS" {
+        send -- "exit\r"
+      }
+      "Total number of keys present: 0" {
+        exit 1
+      }
+      "Description" {
+        exit 1
+      }
+    }
+  }
+}
+
+send -- "exit\r"
+expect eof

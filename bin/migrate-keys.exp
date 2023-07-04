@@ -1,0 +1,53 @@
+#!/usr/bin/expect -f
+set loginuser [lindex $argv 0]
+set loginpass [lindex $argv 1]
+set keyList [lindex $argv 2]
+
+log_user 0
+set timeout 300
+
+spawn /opt/cloudhsm/bin/cloudhsm_mgmt_util /opt/cloudhsm/etc/cloudhsm_mgmt_util.cfg
+
+expect "aws-cloudhsm>"
+
+send -- "enable_e2e\r"
+
+expect "aws-cloudhsm>"
+
+send_user "loginHSM CU $loginuser HIDDEN\n"
+send -- "loginHSM CU $loginuser $loginpass\r"
+
+expect "aws-cloudhsm>"
+log_user 1
+
+foreach {keyHandle oldLabel newLabel} [split $keyList " "] {
+  if {$keyHandle eq ""} {
+    send_user "Empty keyandle, exiting\n"
+    exit 0
+  }
+  if {$oldLabel eq ""} {
+    send_user "Empty oldLabel, exiting\n"
+    exit 0
+  }
+  if {$newLabel eq ""} {
+    send_user "Empty newLabel, exiting\n"
+    exit 0
+  }
+
+  send -- "getAttribute $keyHandle 3\r"
+  expect "$oldLabel"
+
+  expect "aws-cloudhsm>"
+
+  send -- "setAttribute $keyHandle 3 $newLabel\r"
+
+  expect "Do you want to continue(y/n)?"
+  send -- "y\r"
+
+  expect "setAttribute success"
+  expect "aws-cloudhsm>"
+}
+ 
+
+send -- "quit\r"
+expect eof

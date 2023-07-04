@@ -1,0 +1,45 @@
+#!/usr/bin/expect -f
+set loginUser [lindex $argv 0]
+set loginPass [lindex $argv 1]
+set keyID [lindex $argv 2]
+set targetUserID [lindex $argv 3];
+set share [lindex $argv 4];
+
+log_user 0
+set timeout 300
+
+spawn /opt/cloudhsm/bin/cloudhsm_mgmt_util /opt/cloudhsm/etc/cloudhsm_mgmt_util.cfg
+
+expect "aws-cloudhsm>"
+
+send -- "enable_e2e\r"
+
+expect "aws-cloudhsm>"
+
+send_user "loginHSM CU $loginUser HIDDEN\n"
+send -- "loginHSM CU $loginUser $loginPass\r"
+
+expect {
+  "loginHSM failed: HSM Error: RET_USER_LOGIN_FAILURE" {
+   send_user "Wrong password\n"
+   exit 1
+  }
+  "aws-cloudhsm>" {
+    send_user "shareKey $keyID $targetUserID $share\n"
+    send -- "shareKey $keyID $targetUserID $share\r"
+    expect "Do you want to continue(y/n)?"
+    log_user 1
+    send -- "y\r"
+    expect {
+      "aws-cloudhsm>" {
+        send -- "quit\r"
+      }
+      "HSM Error: Invalid input data/params" {
+        exit 1
+      }
+    }
+  }
+}
+
+send -- "quit\r"
+expect eof
